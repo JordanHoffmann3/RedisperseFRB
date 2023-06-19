@@ -1,0 +1,8 @@
+220725      # FRB
+288.37      # DM
+752.5       # f_low (MHz)
+1088.5      # f_high (MHz)
+1.182       # t_int (ms)
+4.1         # burst width (ms)
+12.7        # real SN
+100          # Fluence (Jy ms)
