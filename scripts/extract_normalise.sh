@@ -3,7 +3,7 @@
 frb=$1
 DM=$2
 
-source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
+# source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
 cd $REDIS/Dispersed_${frb}/normalise_${DM}/
 echo "# DM, S/N, sampno, secs from file start, boxcar, idt, dm, beamno,mjd, sampno_start, sampno_end, idt_start, idt_end, ncands" > temp.txt
 

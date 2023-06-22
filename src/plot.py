@@ -357,8 +357,9 @@ def plot_with_models(data, outfile, low_max_dm=None, high_min_dm=None, increment
     else:
         harry_norm_dm = norm_DM
 
-    if os.path.exists("Dispersed_"+frb+"/pulse_injection/extracted_outputs.txt"):
-        harry_data, dm_array, w = get_harry_data("Dispersed_"+frb+"/pulse_injection/extracted_outputs.txt", frb_data[5], harry_norm_dm, plty[np.argwhere(pltx<=harry_norm_dm)[-1][0]])
+    if os.path.exists("Dispersed_"+frb+"/pulse_injection_100Jyms/extracted_outputs.txt"):
+        print("Using specific pulse injection")
+        harry_data, dm_array, w = get_harry_data("Dispersed_"+frb+"/pulse_injection_100Jyms/extracted_outputs.txt", frb_data[5], harry_norm_dm, plty[np.argwhere(pltx<=harry_norm_dm)[-1][0]])
     elif frb_data[2] < 1000:
         harry_data, dm_array, w = get_harry_data("Data/harry_lf.txt", frb_data[5], harry_norm_dm, plty[np.argwhere(pltx<=harry_norm_dm)[-1][0]])
     else:
@@ -449,12 +450,12 @@ def plot_with_models(data, outfile, low_max_dm=None, high_min_dm=None, increment
         x_high = np.linspace(pltx[high_min_idx], pltx[-1], int(1e4))
 
         # Calculating Sammons model
-        y_high_sammons = fit_sammons(pltx, plty, high_min_idx, len(pltx), x_high, frb_data)
-        y_high_sammons_full = fit_sammons(pltx, plty, high_min_idx, len(pltx), x_full, frb_data)
+        y_high_sammons, k = fit_sammons(pltx, plty, high_min_idx, len(pltx), x_high, frb_data)
+        y_high_sammons_full = sammons(k, x_full, frb_data)
 
         # Calculating Cordes model
-        y_high_cordes, _ = fit_cordes(pltx, plty, high_min_idx, len(pltx), x_high, frb_data)
-        y_high_cordes_full, _ = fit_cordes(pltx, plty, high_min_idx, len(pltx), x_full, frb_data)
+        y_high_cordes, k = fit_cordes(pltx, plty, high_min_idx, len(pltx), x_high, frb_data)
+        y_high_cordes_full = cordes(k, x_full,frb_data)
 
         # Add models to plot
         plt.plot(x_high,y_high_sammons,'r-', label='Sammons')
@@ -571,7 +572,7 @@ def get_harry_data(file, width, norm_dm, norm_val, TOL = 0.1):
         j = 0
         while i+j<txt.shape[0] and txt[i+j,1] == curr_dm and txt[i+j,0] == w:
             if np.abs(curr_dm - txt[i+j,7]) < curr_dm * TOL + 10:
-                total += txt[i,2]
+                total += txt[i+j,2]
                 num += 1
             j += 1
 
@@ -610,10 +611,15 @@ Exports:
     y_smoothed_interp = Smoothed array interpolated to x_full
     k = Normalisation constant
 """
-def fit_cordes(datax, datay, min_idx, max_idx, x, frb_data):
+def fit_cordes(datax, datay, min_idx, max_idx, x, frb_data, fit_width=False):
 
     # Do fitting
-    k = minimize(cordes_nll, 1, args=(datax[min_idx:max_idx], datay[min_idx:max_idx], frb_data)).x[0]
+    if (fit_width):
+        k = minimize(cordes_nll, (1,1), args=(datax[min_idx:max_idx], datay[min_idx:max_idx], frb_data)).x[0:2]
+        print("Fitted (eta, w):" + str(k))
+    else:
+        k = minimize(cordes_nll, 1, args=(datax[min_idx:max_idx], datay[min_idx:max_idx], frb_data)).x[0]
+    
     y = cordes(k, x, frb_data)
 
     return y, k
@@ -636,13 +642,18 @@ Exports:
     y_smoothed_interp = Smoothed array interpolated to x_full
 """
 
-def fit_sammons(datax, datay, min_idx, max_idx, x, frb_data):
+def fit_sammons(datax, datay, min_idx, max_idx, x, frb_data, fit_width=False):
 
     # Do fitting
-    k = minimize(sammons_nll, 1, args=(datax[min_idx:max_idx], datay[min_idx:max_idx], frb_data)).x[0]
+    if (fit_width):
+        k = minimize(sammons_nll, (1,1), args=(datax[min_idx:max_idx], datay[min_idx:max_idx], frb_data)).x[0:2]
+        print("Fitted (eta, w):" + str(k))
+    else:
+        k = minimize(sammons_nll, 1, args=(datax[min_idx:max_idx], datay[min_idx:max_idx], frb_data)).x[0]
+    
     y = sammons(k, x, frb_data)
 
-    return y
+    return y, k
 
 #==============================================================================
 
@@ -651,9 +662,15 @@ def cordes(k, DM, frb_data):
     bandwidth = (frb_data[3] - frb_data[2])
     vc = (frb_data[2] + bandwidth/2) / 1e3
     int_t = frb_data[4]
-    w = frb_data[5]
 
-    return k/np.sqrt(np.sqrt((8.3*DM*1/1e3/vc**3)**2 + (int_t)**2 + w**2))
+    if k.size == 2:
+        w = k[1]
+        eta = k[0]
+    else:
+        w = frb_data[5]
+        eta = k
+
+    return eta/np.sqrt(np.sqrt((8.3*DM*1/1e3/vc**3)**2 + (int_t)**2 + w**2))
 
 #==============================================================================
 
@@ -671,9 +688,15 @@ def sammons(k, DM, frb_data):
     bandwidth = (frb_data[3] - frb_data[2])
     vc = (frb_data[2] + bandwidth/2) / 1e3
     int_t = frb_data[4]
-    w = frb_data[5]
+        
+    if k.size == 2:
+        w = k[1]
+        eta = k[0]
+    else:
+        w = frb_data[5]
+        eta = k
 
-    return k/np.sqrt(c1*(8.3*DM*1/1e3/vc**3) + c2*(int_t) + w)
+    return eta/np.sqrt(c1*(8.3*DM*1/1e3/vc**3) + c2*(int_t) + w)
 
 #==============================================================================
 

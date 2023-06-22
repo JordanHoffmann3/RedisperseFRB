@@ -7,7 +7,7 @@
 #SBATCH --time=00:20:00
 #SBATCH --mem-per-cpu=8g
 
-source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
+# source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
 cd $REDIS
 source loadcuda.sh
 

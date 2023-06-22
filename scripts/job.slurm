@@ -11,7 +11,7 @@
 # module load matplotlib/3.3.2-python-3.8.5
 # module load scipy/1.6.0-python-3.8.5
 #./fred/oz002/hqiu/CRAFT_simulation/craftrepo/loadmodules.sh
-source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
+# source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
 
 cd $REDIS
 source loadpy.sh

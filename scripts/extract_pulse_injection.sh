@@ -1,10 +1,10 @@
 #!/bin/bash
 
-source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
+# source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
 
 frb=$1
 
-cd $REDIS/Dispersed_$frb/pulse_injection/
+cd $REDIS/Dispersed_$frb/pulse_injection/fredda_outputs/
 
 echo "# width, DM, S/N, sampno, secs from file start, boxcar, idt, dm, beamno,mjd, sampno_start, sampno_end, idt_start, idt_end, ncands" > temp.txt
 
@@ -17,5 +17,5 @@ do
     sed "s/^/$width $DM /g" $f | tail -n +2 >> temp.txt
 done
 
-sort -k1 -n -k2 -n temp.txt > extracted_outputs.txt
+sort -k1 -n -k2 -n temp.txt > ../extracted_outputs.txt
 rm temp.txt

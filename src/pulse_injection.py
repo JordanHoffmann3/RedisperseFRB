@@ -1,3 +1,7 @@
+'''
+Copied from Harry Qiu's code (Qiu et al 2023) and modified so that the frequencies and time integrations are floats
+'''
+
 import dynspec
 import matplotlib.pyplot as plt
 import numpy as np

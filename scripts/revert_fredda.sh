@@ -2,7 +2,7 @@
 
 # module load git/2.18.0
 # module load gcc/6.4.0
-source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
+# source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
 
 cd $CRAFT
 

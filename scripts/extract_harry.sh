@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
+# source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
 
 path=$1
 cd $path

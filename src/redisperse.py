@@ -59,6 +59,7 @@ def main():
     parser.add_argument('-n', '--normalisation', default=0, dest='normalisation', help='Normalisation by: 0 = whole grid, 1 = frequency channels', type=int)
     parser.add_argument('-s', '--save', default=False, action='store_true', help='Turn on to produce and save pdfs of the outputs')
     parser.add_argument('-p', '--pfb', default=False, action='store_true', help='Turn on to use a simple pfb')
+    parser.add_argument('-u', '--upper_sideband', default=False, action='store_true', help='Upper sideband FRB - Frequencies will not be inverted')
     parser.set_defaults(verbose=False, nxy="1,1")
     values = parser.parse_args()
     if values.verbose:
@@ -248,6 +249,9 @@ def getSpec(x, y, N, M, values, taps=8):
         array_mag[i] = avg_mag / M
 
     mat_mag = np.stack(array_mag)
+
+    if not values.upper_sideband:
+        mat_mag = np.fliplr(mat_mag)
 
     return mat_mag
 

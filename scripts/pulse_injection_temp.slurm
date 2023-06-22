@@ -6,6 +6,6 @@
 #SBATCH --time=1:00:00
 #SBATCH --mem-per-cpu=4g
 
-source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
+# source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
 source $REDIS/loadpy.sh
 
