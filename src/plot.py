@@ -17,6 +17,7 @@ Outputs:
 
 import numpy as np
 import matplotlib.pyplot as plt
+# plt.switch_backend('agg')
 import sys
 from scipy.optimize import minimize
 from scipy import signal
@@ -357,9 +358,9 @@ def plot_with_models(data, outfile, low_max_dm=None, high_min_dm=None, increment
     else:
         harry_norm_dm = norm_DM
 
-    if os.path.exists("Dispersed_"+frb+"/pulse_injection_100Jyms/extracted_outputs.txt"):
+    if os.path.exists("Dispersed_"+frb+"/pulse_injection/extracted_outputs.txt"):
         print("Using specific pulse injection")
-        harry_data, dm_array, w = get_harry_data("Dispersed_"+frb+"/pulse_injection_100Jyms/extracted_outputs.txt", frb_data[5], harry_norm_dm, plty[np.argwhere(pltx<=harry_norm_dm)[-1][0]])
+        harry_data, dm_array, w = get_harry_data("Dispersed_"+frb+"/pulse_injection/extracted_outputs.txt", frb_data[5], harry_norm_dm, plty[np.argwhere(pltx<=harry_norm_dm)[-1][0]])
     elif frb_data[2] < 1000:
         harry_data, dm_array, w = get_harry_data("Data/harry_lf.txt", frb_data[5], harry_norm_dm, plty[np.argwhere(pltx<=harry_norm_dm)[-1][0]])
     else:
@@ -742,16 +743,16 @@ def plot_reverted():
     plt.plot(data[:,0], data[:,1], '.', label="latest")
 
     # Read data
-    dirs = os.scandir("Dispersed_" + frb + "/fredda_old")
+    dirs = sorted(os.scandir("Dispersed_" + frb + "/fredda_reverted"), key=lambda e: e.name)
     for dir in dirs:
         if dir.name[:15] == "fredda_outputs_":
-            if os.path.exists("Dispersed_" + frb + "/fredda_old/" + dir.name + "/extracted_outputs.txt"):
-                data = np.genfromtxt("Dispersed_" + frb + "/fredda_old/" + dir.name + "/extracted_outputs.txt", skip_header=1)
-                plt.plot(data[:,0], data[:,1], '.', label=dir.name[15:])
+            if os.path.exists("Dispersed_" + frb + "/fredda_reverted/" + dir.name + "/extracted_outputs.txt"):
+                data = np.genfromtxt("Dispersed_" + frb + "/fredda_reverted/" + dir.name + "/extracted_outputs.txt", skip_header=1)
+                if len(data.shape) != 1:
+                    plt.plot(data[:,0], data[:,1], '.', label=dir.name[15:])
             else:
                 print("No file output.txt in " + dir.name)
 
-    dirs.close()
     plt.legend()
     plt.savefig("plots/"+frb+"_reverted.png", bbox_inches='tight')
     plt.close()

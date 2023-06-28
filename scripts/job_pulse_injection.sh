@@ -20,9 +20,9 @@ do
     f=Data/${frb}/${frb}_param.dat
 
     # Get FRB parameters from file frb_param.dat
-    f_low=$(sed -n 3p $f | awk '{print $1;}')
-    f_high=$(sed -n 4p $f | awk '{print $1;}')
-    t_int=$(sed -n 5p $f | awk '{print $1;}')
+    f_mid=$(sed -n 3p $f | awk '{print $1;}')
+    f_high=$(bc <<< "scale=1; $f_mid + 118")
+    t_int=$(sed -n 4p $f | awk '{print $1;}')
     w=$(sed -n 6p $f | awk '{print $1;}')
 
     sig=$(bc <<< "scale=2; $w/2.0")
@@ -48,7 +48,7 @@ do
 
     cp $REDIS/scripts/pulse_injection_temp.slurm job.slurm
     echo cd $REDIS/Dispersed_$frb/pulse_injection/outputs >> job.slurm
-    echo python3 $REDIS/src/pulse_injection.py -l $frb -A $A -N 20 --dm_start 0 --dm 3000 --sig_start $sig --sig $sig --bwchan -1 --fch1 $f_high --tsamp $t_int >> job.slurm
+    echo python3 $REDIS/src/pulse_injection.py -l ${frb} -A $A -N 20 --dm_start 0 --dm 3000 --sig_start $sig --sig $sig --bwchan -1 --fch1 $f_high --tsamp $t_int >> job.slurm
     
     sbatch job.slurm
 

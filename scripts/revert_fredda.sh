@@ -16,14 +16,21 @@ then
 
     commit_id=$(git log --until="${date}" | head -1 | awk '{print $2;}')
 
+    echo "Date: $date"
+    git checkout -f dadain
     echo "Checking out commit ${commit_id}"
     git checkout ${commit_id} .
     echo "Making..."
     cd cuda-fdmt/cudafdmt/src
+    # cp $REDIS/fredda/Makefile .
+    # cp $REDIS/fredda/fredda.mk .
+    cp $REDIS/fredda/Makefile .
+    cp $REDIS/fredda/fredda.mk .
+
+    make clean
     make
     echo "Done making"
 
-    cp cudafdmt $REDIS/fredda/cudafdmt_$frb
-
-    git checkout dadain
+    mv cudafdmt $REDIS/fredda/cudafdmt_$frb
+    git checkout -f dadain
 fi

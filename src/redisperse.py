@@ -1,9 +1,7 @@
 """
 Program: redisperse.py
 Author: Jordan Hoffmann
-Date: 16/06/2023
 Purpose: Redisperses a dedispersed FRB.
-Last update: Added masking and changed plotting
 
 Inputs:
     FRB = FRB ID number
@@ -48,18 +46,18 @@ def main():
     parser.add_argument(dest='frb', help='FRB name e.g. 181112', type=str)
     parser.add_argument(dest='real_DM', help='Original dispersion measure', type=str)
     parser.add_argument(dest='DM', help='Dispersion measure to redisperse to', type=float)
-    parser.add_argument(dest='f_low', help='Lowest observational frequency', type=float)
-    parser.add_argument(dest='f_high', help='Highest observational frequency', type=float)
+    parser.add_argument(dest='f_mid', help='Central observational frequency', type=float)
     parser.add_argument(dest='int_t', help='Integration time', type=float)
+    parser.add_argument('-N', '--bandwidth', dest='N', nargs='?', default=336, help='Number of the frequency bins', type=int)
     parser.add_argument('-w', '--binwidth', dest='width', nargs='?', default=1.0, help='Width of the frequency bins', type=float)
-    parser.add_argument('-r', '--reverse_fq', default=False, action='store_true', help='Start from the highest frequency when saving to filterbank')
+    # parser.add_argument('-r', '--reverse_fq', default=False, action='store_true', help='Start from the highest frequency when saving to filterbank')
     parser.add_argument('-o', '--offset', dest='offset', nargs='?', default=0.0, help='Offset to consider to change integration start position as a percentage of one integration bin', type=float)
     parser.add_argument('-f', '--files', dest='files', nargs='+', help='File location of: x_time_data y_time_data [x_freq_data y_freq_data]. If not specified expected to be in "Data" folder', type=commasep)
     parser.add_argument('--sd_f', default=8, dest='sd_f', help='Standard deviation for the final filterbank file (converetd to 8-bit integer)', type=int)
     parser.add_argument('-n', '--normalisation', default=0, dest='normalisation', help='Normalisation by: 0 = whole grid, 1 = frequency channels', type=int)
     parser.add_argument('-s', '--save', default=False, action='store_true', help='Turn on to produce and save pdfs of the outputs')
     parser.add_argument('-p', '--pfb', default=False, action='store_true', help='Turn on to use a simple pfb')
-    parser.add_argument('-u', '--upper_sideband', default=False, action='store_true', help='Upper sideband FRB - Frequencies will not be inverted')
+    parser.add_argument('-u', '--upper_sideband', default=False, action='store_true', help='Upper sideband FRB. If true then frequencies will not be inverted')
     parser.set_defaults(verbose=False, nxy="1,1")
     values = parser.parse_args()
     if values.verbose:
@@ -112,72 +110,104 @@ def main():
         np.save("Data/"+values.frb+"/"+values.frb+"_y_f_"+values.real_DM+".npy", y_f)
 
     # Set parameters
-    N = int((values.f_high - values.f_low)/values.width)      # Number of frequency bins
+    values.f_high = values.f_mid + values.N*values.width/2.
+    values.f_low = values.f_mid - values.N*values.width/2.
 
-    L = len(x_f)
-    t_space = 1/(N*1e6)
-    M = int(np.floor((values.int_t*1e-3)/t_space/N))     # Average over M time bins
-    spec_space = t_space * N * M
-    values.offset = int(np.round(values.offset * M / 100.0))
+    values.L = len(x_f)
+    t_space = 1/(values.N*1e6)
+    values.M = int(np.floor((values.int_t*1e-3)/t_space/values.N))     # Average over M time bins
+    spec_space = t_space * values.N * values.M
+    values.offset = int(np.round(values.offset * values.M / 100.0))
 
-    f_total = fftfreq(L, t_space*1e6) + values.f_low
-    f_total[int(np.ceil((L)/2))::] = f_total[int(np.ceil((L)/2))::] + N
+    # Get frequency vectors. Reverse them if it is not the upper sideband
+    if not values.upper_sideband:
+        f_total = -fftfreq(values.L, t_space*1e6) + values.f_high
+        f_total[int(np.ceil((values.L)/2)):] = f_total[int(np.ceil((values.L)/2)):] - values.N
 
-    f = fftfreq(N, values.width/N) + values.f_low
-    f[int(np.ceil(N/2))::] = f[int(np.ceil(N/2))::] + N
+        f = -fftfreq(values.N, values.width/values.N) + values.f_high
+        f[int(np.ceil(values.N/2)):] = f[int(np.ceil(values.N/2)):] - values.N
+    else:
+        f_total = fftfreq(values.L, t_space*1e6) + values.f_low
+        f_total[int(np.ceil((values.L)/2)):] = f_total[int(np.ceil((values.L)/2)):] + values.N
+
+        f = fftfreq(values.N, values.width/values.N) + values.f_low
+        f[int(np.ceil(values.N/2)):] = f[int(np.ceil(values.N/2)):] + values.N
 
     # Check if a DM0 baseline exists already then read / create it
     if not exists("Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_0.0.npy"):
-        orig_spec = getSpec(x_t, y_t, N, M, values)
+        orig_spec = getSpec(x_t, y_t, values.N, values.M, values)
         np.save("Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_0.0",orig_spec)
         print("DM0 baseline saved", flush=True)
     else:
         orig_spec = np.load("Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_0.0.npy")
         print("DM0 baseline loaded", flush=True)
 
+    # Determine wrapping positions for the given DM
+    intercept_idx = findFRBWrapPos(orig_spec, values, f, spec_space)
+
+    # Determine mean and sd of each spectral channel
+    mean, sd = getNoise(orig_spec)
+
+    # Free memory
+    del orig_spec
+
     # Apply a dispersion to frequency data
-    x_f_dispersed, y_f_dispersed = applyDispersion(values.DM, values.f_low, values.f_high, f_total, x_f, y_f)
+    x_f_dispersed, y_f_dispersed = applyDispersion(values, f_total, x_f, y_f)
     print("Dispersion to DM " + str(values.DM) + " applied", flush=True)
+
+    # Free memory
+    del x_f
+    del y_f
 
     # IFFT to get 'dispersed time data'
     x_t_dispersed = ifft(x_f_dispersed)
     y_t_dispersed = ifft(y_f_dispersed)
 
+    # Free memory
+    del x_f_dispersed
+    del y_f_dispersed
+
     # Convert dispersed data into a spectrogram
-    dispersed_spec = getSpec(x_t_dispersed, y_t_dispersed, N, M, values)
+    dispersed_spec = getSpec(x_t_dispersed, y_t_dispersed, values.N, values.M, values)
     print("Dispersed spectrogram created", flush=True)
 
+    # Free memory
+    del x_t_dispersed
+    del y_t_dispersed
+
     # Reconstruct the spectrogram to eliminate wrapping of the signal
-    intercept_idx = findFRBWrapPos(orig_spec, dispersed_spec, values, f, spec_space)
-    mean, sd = getNoise(orig_spec)
-    dispersed_spec_reconstructed = reconstructSpec(dispersed_spec, intercept_idx, mean, sd, N)
+    dispersed_spec_reconstructed = reconstructSpec(dispersed_spec, intercept_idx, mean, sd, values.upper_sideband)
     print("Dispersed spectrogram reconstructed to avoid wrapping", flush=True)
+
+    # Save and free dispersed_spec
+    if values.save:
+        t = np.arange(dispersed_spec.shape[0]) * spec_space
+        dispersed_spec = normaliseSpec(dispersed_spec, mean, sd, sd_f=values.sd_f, normalisation=values.normalisation)
+        saveSpec(np.transpose(dispersed_spec), t, f, "Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM))
+    del dispersed_spec
 
     # Create filterbank appropriate spectrogram
     noise = getFilterbankSpec(spec_space, dispersed_spec_reconstructed, mean, sd, sd_f=values.sd_f, normalisation=values.normalisation)
     print("Noise added", flush=True)
 
     # Save to filterbank file
-    if values.reverse_fq:
-        header = header = wf.makeHeader(values.f_high, -values.width, N, spec_space)
-        wf.inject(header,"Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM),np.flipud(np.transpose(noise)))
+    if not values.upper_sideband:
+        header = wf.makeHeader(values.f_high, -values.width, values.N, spec_space)
+        wf.inject(header,"Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM),noise)
     else:
-        header = wf.makeHeader(values.f_low, values.width, N, spec_space)
-        wf.inject(header,"Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM),np.transpose(noise))
+        header = wf.makeHeader(values.f_low, values.width, values.N, spec_space)
+        wf.inject(header,"Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM),noise)
     print("Saved filterbank file", flush=True)
 
     if values.save:
         # Save the final spectrogram
-        np.save("Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM),dispersed_spec_reconstructed)
-        print("Reconstructed spectrogram saved", flush=True)
+        # np.save("Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM),dispersed_spec_reconstructed)
+        # print("Reconstructed spectrogram saved", flush=True)
         
-        # Save pngs of each spectrogram
-        t = np.arange(orig_spec.shape[0]) * spec_space
         t_expanded = np.arange(dispersed_spec_reconstructed.shape[0]) * spec_space
         t_noise = np.arange(noise.shape[0]) * spec_space
         saveSpec(np.transpose(noise), t_noise, f, "Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM)+"_noisy")
-        dispersed_spec = normaliseSpec(dispersed_spec, mean, sd, sd_f=values.sd_f, normalisation=values.normalisation)
-        saveSpec(np.transpose(dispersed_spec), t, f, "Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM))
+        
         dispersed_spec_reconstructed = normaliseSpec(dispersed_spec_reconstructed, mean, sd, sd_f=values.sd_f, normalisation=values.normalisation)
         saveSpec(np.transpose(dispersed_spec_reconstructed), t_expanded, f, "Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM)+"_reconstructed")
         print("Saved pngs", flush=True)
@@ -250,8 +280,8 @@ def getSpec(x, y, N, M, values, taps=8):
 
     mat_mag = np.stack(array_mag)
 
-    if not values.upper_sideband:
-        mat_mag = np.fliplr(mat_mag)
+    # if not values.upper_sideband:
+    #     mat_mag = np.fliplr(mat_mag)
 
     return mat_mag
 
@@ -274,11 +304,17 @@ Exports:
     x_t_dispersed = Dispersed time data for x
     y_t_dispersed = Dispersed time data for y
 """
-def applyDispersion(DM, f_low, f_high, f_total, x_f, y_f):
+def applyDispersion(values, f_total, x_f, y_f):
     # Apply dispersion
     D = 4.148808e3 # Dispersion constant in MHz^2 pc^-1 cm^3 s
-    f_0 = f_high # Frequency dispersion is done relative to in MHz
-    dphi = 2*np.pi * D*1e6 * DM * (f_total - f_0)**2 / ((f_0)**2 * f_total)
+    f_0 = values.f_high
+    # f_0 = f_high # Frequency dispersion is done relative to in MHz
+    dphi = 2*np.pi * D*1e6 * values.DM * (f_total - f_0)**2 / ((f_0)**2 * f_total)
+
+    # Dispersion needs to be reversed if the frequencies are backwards
+    if not values.upper_sideband:
+        dphi = -dphi
+
     x_f_dispersed = x_f * np.exp(1j*dphi)
     y_f_dispersed = y_f * np.exp(1j*dphi)
 
@@ -295,7 +331,6 @@ starting bin has the highest S/N.
 
 Imports:
     orig_spec = Original dedispersed spectrogram
-    dispersed_spec = Spectrogram of dispersed FRB as a 2D numpy array
     DM = Dispersion measure
     values = Command line parameters
     f = Frequency vector
@@ -305,9 +340,9 @@ Exports:
     intercept_idx = List of indexes (corr. to frequencies) of where the FRB 
                     intercepts the array bounds and wraps.
 """
-def findFRBWrapPos(orig_spec, dispersed_spec, values, f, spacing):
+def findFRBWrapPos(orig_spec, values, f, spacing):
 
-    t_len = dispersed_spec.shape[0]
+    t_len = orig_spec.shape[0]
 
     # Determine time delay for each frequency
     D = 4.148808e3 # Dispersion constant in MHz^2 pc^-1 cm^3 s
@@ -319,7 +354,8 @@ def findFRBWrapPos(orig_spec, dispersed_spec, values, f, spacing):
     intercept_idx = []
 
     while(np.round(max(dt)/spacing) + start > t_len):
-        intercept_idx.append(np.where(dt > (t_len - start)*spacing)[0][-1])
+        invalid_fq = dt > (t_len - start)*spacing
+        intercept_idx.append(np.where(np.diff(invalid_fq) != 0)[0][0])
         dt = dt - t_len*spacing
 
     print('Start: ', str(start), flush=True)
@@ -348,18 +384,22 @@ Imports:
 Exports:
     dispersed_spec_reconstructed = Reconstructed spectrogram
 """
-def reconstructSpec(dispersed_spec, intercept_idx, mean, sd, N, buffer=10):
+def reconstructSpec(dispersed_spec, intercept_idx, mean, sd, upper_sideband=False, buffer=10):
 
+    print(intercept_idx)
     numIntercepts = len(intercept_idx)
     if (numIntercepts > 0):
+        N = dispersed_spec.shape[1]
+        if not upper_sideband:
+            dispersed_spec = np.flip(dispersed_spec, axis=0)
 
         # Create new padded array of noise
         padded = np.zeros(((numIntercepts + 1)*dispersed_spec.shape[0],dispersed_spec.shape[1]))
         for i in range(N):
             padded[:,i] = np.random.normal(mean[i],sd[i],((numIntercepts + 1)*dispersed_spec.shape[0]))
         
-        padded_unordered = padded.copy()
-        padded_unordered[:dispersed_spec.shape[0],:] = dispersed_spec
+        # padded_unordered = padded.copy()
+        # padded_unordered[:dispersed_spec.shape[0],:] = dispersed_spec
 
         # Copy in pieces as necessary
         fin = dispersed_spec.shape[0]
@@ -397,6 +437,9 @@ def reconstructSpec(dispersed_spec, intercept_idx, mean, sd, N, buffer=10):
         padded[(i)*fin:(i)*fin+mid,next_left_idx:left_idx] = dispersed_spec[:mid,next_left_idx:left_idx]
         padded[(i)*fin+mid:(i)*fin+fin,next_right_idx:right_idx] = dispersed_spec[mid:fin,next_right_idx:right_idx]
 
+        if not upper_sideband:
+            dispersed_spec = np.flip(dispersed_spec, axis=0)
+            padded = np.flip(padded, axis=0)
     else:
         padded = dispersed_spec
 
@@ -554,11 +597,11 @@ def saveSpec(spec, t, f, file_name):
     fig = plt.figure()
     ax = plt.subplot(1,1,1)
 
-    #plt.pcolormesh(t, f, spec, shading='auto')
-    ax.imshow(spec, aspect="auto", extent=[t[0], t[-1], f[0], f[-1]], origin='lower', vmin=np.min(spec), vmax=np.max(spec))
-    fig.colorbar()
+    cm = plt.pcolormesh(t, f, spec, shading='auto')
+    # cm = ax.imshow(spec, aspect="auto", extent=[t[0], t[-1], f[0], f[-1]], origin='lower', vmin=np.min(spec), vmax=np.max(spec))
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Frequency (MHz)")
+    fig.colorbar(cm)
     plt.savefig(file_name + ".png", format="png", bbox_inches='tight')
 
 #==============================================================================

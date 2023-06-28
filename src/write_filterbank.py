@@ -8,7 +8,7 @@ Contains functions used to create a filterbank file for simulated FRBs.
 
 import numpy as np
 import matplotlib.pyplot as plt
-import fbio
+import sigproc as sgp
 
 #==============================================================================
 """
@@ -72,9 +72,10 @@ Exports:
 """
 
 def inject(mockheader,output,burst):
-    filterbank=fbio.makefilterbank(output+".fil",header=mockheader)
-    filterbank.writeblock(burst.astype(np.uint8))
-    filterbank.closefile()
+    filterbank = sgp.SigprocFile(output+".fil",'wb',mockheader)
+    burst.astype(np.uint8).tofile(filterbank.fin)
+    filterbank.fin.flush()
+    filterbank.fin.close()
 
 #==============================================================================
 

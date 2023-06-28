@@ -18,9 +18,8 @@ do
 
     # Get FRB parameters from file frb_param.dat
     DMi=$(sed -n 2p $f | awk '{print $1;}')
-    f_low=$(sed -n 3p $f | awk '{print $1;}')
-    f_high=$(sed -n 4p $f | awk '{print $1;}')
-    t_int=$(sed -n 5p $f | awk '{print $1;}')
+    f_mid=$(sed -n 3p $f | awk '{print $1;}')
+    t_int=$(sed -n 4p $f | awk '{print $1;}')
 
     echo "frb: ${frb} DMi: ${DMi}"
 
@@ -47,7 +46,7 @@ do
         if [ ! -f ../outputs/${frb}_DM_${DM}.fil ]
         then
             cp ../../scripts/job_temp.slurm job_${DM}.slurm
-            echo python src/redisperse.py ${frb} ${DMi} ${DM} ${f_low} ${f_high} ${t_int} >> job_${DM}.slurm
+            echo python src/redisperse.py ${frb} ${DMi} ${DM} ${f_mid} ${t_int} >> job_${DM}.slurm
 
             sbatch job_${DM}.slurm
         fi
