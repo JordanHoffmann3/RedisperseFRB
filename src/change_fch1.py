@@ -41,16 +41,13 @@ def main():
 
     # Reverse header
     header = f.header
-    print(str(header['foff']))
-
-    header['foff'] = -header['foff']
-    header['fch1'] = header['fch1'] + (header['nchans'] - 1) * header['foff']
+    
+    header['fch1'] = header['fch1'] + header['foff']/2.
 
     # Reverse frequency ordering in data
     f.seek_data()
     v = np.fromfile(f.fin, dtype=np.uint8, count=-1)
     v.shape = (-1, f.nchans)
-    v = np.fliplr(v)
 
     # Write to new filterbank file
     f_out = sigproc.SigprocFile(values.outfile,'wb',header)

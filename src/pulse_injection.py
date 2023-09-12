@@ -69,10 +69,10 @@ def fluencebatch(fch1,bwchan,nchan,tsamp,mode,label,nsamp,npulse,sigmarange,dmra
             model.writenoise(nsamp=nsamp)
             model.writenoise(nsamp=nsamp)
             bandfrac=np.ones(model.nchan)
-            # Uncomment if only the bottom half of the band is filled
-            # bandfrac[model.nchan//2:]=0
-            # Uncomment if only the top half of the band is filled
+            # Uncomment if only the bottom half of the band is filled (assuming fch1 is the highest frequency)
             # bandfrac[:model.nchan//2]=0
+            # Uncomment if only the bottom top of the band is filled
+            # bandfrac[model.nchan//2:]=0
             base1,base2=model.burst(t0=tstart,dm=j,A=50,width=i,mode=mode,nsamp=nsamp,offset=xset,bandfrac=bandfrac)
             # print(model.L2_snr())
             # print(i)

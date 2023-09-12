@@ -3,13 +3,13 @@ for frb in "$@"
 do
     cd $REDIS
 
-    if ! [ -d Dispersed_${frb}/pulse_injection/fredda_job/ ]
+    if ! [ -d Outputs/Dispersed_${frb}/pulse_injection/fredda_job/ ]
     then
-        mkdir Dispersed_${frb}/pulse_injection/fredda_job/
-        mkdir Dispersed_${frb}/pulse_injection/fredda_outputs/
+        mkdir Outputs/Dispersed_${frb}/pulse_injection/fredda_job/
+        mkdir Outputs/Dispersed_${frb}/pulse_injection/fredda_outputs/
     fi
 
-    cd Dispersed_${frb}/pulse_injection/outputs/
+    cd Outputs/Dispersed_${frb}/pulse_injection/outputs/
 
     # For each fil file
     for f in *.fil
@@ -23,7 +23,7 @@ do
             scriptname=cudarun_${f}.sh
             cp $REDIS/scripts/cudatemp.sh ${scriptname}
 
-            echo "cd $REDIS/Dispersed_${frb}/pulse_injection/fredda_outputs/" >> ${scriptname}
+            echo "cd $REDIS/Outputs/Dispersed_${frb}/pulse_injection/fredda_outputs/" >> ${scriptname}
             echo "source $REDIS/loadcuda.sh > /dev/null" >> ${scriptname}
             echo $runcudafdmt ../outputs/${f} -t 1024 -d 8192 -x 9 -o ${f}.cand >> ${scriptname}
             # echo "source $REDIS/loadpy.sh > /dev/null" >> ${scriptname}

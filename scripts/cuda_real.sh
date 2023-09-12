@@ -1,10 +1,21 @@
 #!/bin/bash
 # source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
 
-frb=$1
-
-for date in "${@:2}"
+for frb in "$@"
 do
+
+    if [ ${frb:0:6} -lt 190830 ]
+    then
+        echo "$frb : 190101"
+        date=190101
+    elif [ ${frb:0:6} -lt 200406 ]
+    then
+        echo "$frb : 200228"
+        date=200228
+    else
+        echo "$frb : skipping"
+        continue
+    fi
 
     cd $REDIS/Outputs/Dispersed_${frb}
 

@@ -7,12 +7,12 @@ do
     cd $REDIS
 
     # Make directories
-    if ! [ -d Dispersed_${frb}/reverse_fq ]
+    if ! [ -d Outputs/Dispersed_${frb}/reverse_fq ]
     then
-        mkdir Dispersed_${frb}/reverse_fq
+        mkdir Outputs/Dispersed_${frb}/reverse_fq
     fi
 
-    cd Dispersed_${frb}/outputs
+    cd Outputs/Dispersed_${frb}/outputs
 
     # For each fil file
     for f in *.fil

@@ -7,11 +7,11 @@ do
     cd $REDIS
 
     # Make directories
-    if ! [ -d Dispersed_${frb}/ ]
+    if ! [ -d Outputs/Dispersed_${frb}/ ]
     then
-        mkdir Dispersed_${frb}
-        mkdir Dispersed_${frb}/job
-        mkdir Dispersed_${frb}/outputs
+        mkdir Outputs/Dispersed_${frb}
+        mkdir Outputs/Dispersed_${frb}/job
+        mkdir Outputs/Dispersed_${frb}/outputs
     fi
 
     f=Data/${frb}/${frb}_param.dat
@@ -30,22 +30,22 @@ do
     # fi
 
     # Navigate to directories where jobs are created and executed
-    cd Dispersed_${frb}/job
+    cd Outputs/Dispersed_${frb}/job
 
     # For each DM
-    for DMint in $DMi {0..4000..50}
+    for DMint in {0..7500..50} #$DMi
     do
+        # Make the DM a double with one decimal if it is an integer
         if [[ ${DMint} == *.* ]]
         then
             DM=${DMint}
         else
-            # Make the DM a double with one decimal
             DM=$(printf "%.1f" ${DMint})
         fi
 
         if [ ! -f ../outputs/${frb}_DM_${DM}.fil ]
         then
-            cp ../../scripts/job_temp.slurm job_${DM}.slurm
+            cp $REDIS/scripts/job_temp.slurm job_${DM}.slurm
             echo python src/redisperse.py ${frb} ${DMi} ${DM} ${f_mid} ${t_int} >> job_${DM}.slurm
 
             sbatch job_${DM}.slurm

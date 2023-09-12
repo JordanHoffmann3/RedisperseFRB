@@ -4,7 +4,7 @@ frb=$1
 DM=$2
 
 # source /fred/oz002/jhoffmann/RedisperseFRB/setup.sh > /dev/null
-cd $REDIS/Dispersed_${frb}/noise_${DM}/outputs/
+cd $REDIS/Outputs/Dispersed_${frb}/noise_${DM}/fredda_outputs/
 echo "# DM, S/N, sampno, secs from file start, boxcar, idt, dm, beamno,mjd, sampno_start, sampno_end, idt_start, idt_end, ncands" > extracted_outputs.txt
 
 for f in *.cand.fof

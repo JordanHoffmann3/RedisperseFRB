@@ -5,7 +5,7 @@ cd $REDIS
 for frb in "$@"
 do
 
-    cd Dispersed_${frb}
+    cd Outputs/Dispersed_${frb}
 
     if ! [ -d cuda_job/ ]
     then
@@ -27,9 +27,9 @@ do
             scriptname=cudarun_${f}.sh
             cp $REDIS/scripts/cudatemp.sh ${scriptname}
 
-            echo "cd $REDIS/Dispersed_${frb}" >> ${scriptname}
+            echo "cd $REDIS/Outputs/Dispersed_${frb}" >> ${scriptname}
             echo "source $REDIS/loadcuda.sh > /dev/null" >> ${scriptname}
-            echo $runcudafdmt outputs/${f} -t 1024 -d 8192 -x 9 -o fredda_outputs/${f}.cand >> ${scriptname}
+            echo $runcudafdmt outputs/${f} -t 1024 -d 16384 -x 10 -o fredda_outputs/${f}.cand >> ${scriptname}
             # echo "source $REDIS/loadpy.sh > /dev/null" >> ${scriptname}
             echo python $REDIS/fredda/fredfof.py --dmmin=-1.0 fredda_outputs/${f}.cand >> ${scriptname}
 

@@ -14,7 +14,7 @@ Inputs:
     Note: Four input files are expected
         x,y for frequency,time.
         They are assumed to be named <frb>_<x or y>_<f or t>_<real_DM>.npy placed in a folder called Data/<frb>
-        e.g. Data/181112/181112_x_f_589.265.npy
+        e.g. Data/181112/181112_X_f_589.265.npy
 
 Outputs to Dispersed_<frb> folder
     <frb>_DM<dm>.npy = Frequency-time numpy matrix for redispersed and reconstructed FRB
@@ -30,7 +30,9 @@ Outputs to Dispersed_<frb> folder
 import numpy as np
 import sys
 from os.path import exists
+import os
 import matplotlib.pyplot as plt
+plt.rcParams.update({'font.size': 22})
 from scipy.fft import fft, fftfreq, ifft
 from scipy import stats
 import write_filterbank as wf
@@ -48,16 +50,22 @@ def main():
     parser.add_argument(dest='DM', help='Dispersion measure to redisperse to', type=float)
     parser.add_argument(dest='f_mid', help='Central observational frequency', type=float)
     parser.add_argument(dest='int_t', help='Integration time', type=float)
-    parser.add_argument('-N', '--bandwidth', dest='N', nargs='?', default=336, help='Number of the frequency bins', type=int)
-    parser.add_argument('-w', '--binwidth', dest='width', nargs='?', default=1.0, help='Width of the frequency bins', type=float)
+    parser.add_argument('--out_dir', dest='out_dir', default='', help='Output directory', type=str)
+    parser.add_argument('--data_dir', dest='data_dir', default='', help='Data directory', type=str)
+    parser.add_argument('--xt', dest='xt', default=None, help='Numpy file with x voltages. Defaults to FRB_X_t_DM.npy', type=str)
+    parser.add_argument('--yt', dest='yt', default=None, help='Numpy file with y voltages. Defaults to FRB_Y_t_DM.npy', type=str)
+    parser.add_argument('--xf', dest='xf', default=None, help='Numpy file with x data as a function of frequency. If the file does not exist, it will be created and saved to the specified file. Defaults to FRB_X_f_DM.npy', type=str)
+    parser.add_argument('--yf', dest='yf', default=None, help='Numpy file with y data as a function of frequency. If the file does not exist, it will be created and saved to the specified file. Defaults to FRB_Y_f_DM.npy', type=str)
+    parser.add_argument('-N', '--bandwidth', dest='N', default=336, help='Number of frequency bins', type=int)
+    parser.add_argument('-w', '--binwidth', dest='width', default=1.0, help='Width of the frequency bins', type=float)
     # parser.add_argument('-r', '--reverse_fq', default=False, action='store_true', help='Start from the highest frequency when saving to filterbank')
-    parser.add_argument('-o', '--offset', dest='offset', nargs='?', default=0.0, help='Offset to consider to change integration start position as a percentage of one integration bin', type=float)
-    parser.add_argument('-f', '--files', dest='files', nargs='+', help='File location of: x_time_data y_time_data [x_freq_data y_freq_data]. If not specified expected to be in "Data" folder', type=commasep)
-    parser.add_argument('--sd_f', default=8, dest='sd_f', help='Standard deviation for the final filterbank file (converetd to 8-bit integer)', type=int)
+    parser.add_argument('-o', '--offset', dest='offset', default=0.0, help='Offset to consider to change integration start position as a percentage of one integration bin', type=float)
+    # parser.add_argument('-f', '--files', dest='files', nargs='+', help='File location of: x_time_data y_time_data [x_freq_data y_freq_data]. If not specified expected to be in "Data" folder', type=commasep)
     parser.add_argument('-n', '--normalisation', default=0, dest='normalisation', help='Normalisation by: 0 = whole grid, 1 = frequency channels', type=int)
     parser.add_argument('-s', '--save', default=False, action='store_true', help='Turn on to produce and save pdfs of the outputs')
     parser.add_argument('-p', '--pfb', default=False, action='store_true', help='Turn on to use a simple pfb')
     parser.add_argument('-u', '--upper_sideband', default=False, action='store_true', help='Upper sideband FRB. If true then frequencies will not be inverted')
+    parser.add_argument('--sd_f', default=8, dest='sd_f', help='Standard deviation for the final filterbank file (converetd to 8-bit integer)', type=int)
     parser.set_defaults(verbose=False, nxy="1,1")
     values = parser.parse_args()
     if values.verbose:
@@ -65,49 +73,48 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO)
 
+
+    # Set default folders and files
+    if values.xt==None:
+        values.xt = values.frb + '_X_t_' + str(values.real_DM) + '.npy'
+    if values.yt==None:
+        values.yt = values.frb + '_Y_t_' + str(values.real_DM) + '.npy'
+    if values.xf==None:
+        values.xf = values.frb + '_X_f_' + str(values.real_DM) + '.npy'
+    if values.yf==None:
+        values.yf = values.frb + '_Y_f_' + str(values.real_DM) + '.npy'
+
     # Read data files
-    if values.files == None:
-        if exists("Data/"+values.frb+"/"+values.frb+"_x_t_"+values.real_DM+".npy"):
-            print("Loading x time data", flush=True)
-            x_t = np.load("Data/"+values.frb+"/"+values.frb+"_x_t_"+values.real_DM+".npy")
-        else:
-            print("Filepath to x time data is expected to be specified with -f or located at Data/"+values.frb+"/"+ values.frb + "_x_t_" + values.real_DM + ".npy", flush=True)
-            sys.exit()
-
-        if exists("Data/"+values.frb+"/"+values.frb+"_y_t_"+values.real_DM+".npy"):
-            print("Loading y time data", flush=True)
-            y_t = np.load("Data/"+values.frb+"/"+values.frb+"_y_t_"+values.real_DM+".npy")
-        else:
-            print("Filepath to y time data is expected to be specified with -f or located at Data/"+values.frb+"/" + values.frb + "_y_t_" + values.real_DM + ".npy", flush=True)
-            sys.exit()
+    if exists(os.path.join(values.data_dir, values.xt)):
+        print("Loading x time data from " + os.path.join(values.data_dir, values.xt), flush=True)
+        x_t = np.load(os.path.join(values.data_dir, values.xt))
     else:
-        print("Loading x time data", flush=True)
-        x_t = np.load(values.files(0))
-        print("Loading y time data", flush=True)
-        y_t = np.load(values.files(1))
+        print("No x time data found at " + os.path.join(values.data_dir, values.xt), flush=True)
+        sys.exit()
+    
+    if exists(os.path.join(values.data_dir, values.yt)):
+        print("Loading y time data from " + os.path.join(values.data_dir, values.yt), flush=True)
+        y_t = np.load(os.path.join(values.data_dir, values.yt))
+    else:
+        print("No y time data found at " + os.path.join(values.data_dir, values.yt), flush=True)
+        sys.exit()
 
-    # If the frequency files exist read them, otherwise create them
-    if values.files != None and len(values.files) == 3:
-        print("Loading x fq data", flush=True)
-        x_f = np.load(values.files(2))
-    elif exists("Data/"+values.frb+"/"+values.frb+"_x_f_"+values.real_DM+".npy"):
-        print("Loading x fq data", flush=True)
-        x_f = np.load("Data/"+values.frb+"/"+values.frb+"_x_f_"+values.real_DM+".npy")
+    # Load or create frequency files
+    if exists(os.path.join(values.data_dir, values.xf)):
+        print("Loading x frequency data from " + os.path.join(values.data_dir, values.xf), flush=True)
+        x_f = np.load(os.path.join(values.data_dir, values.xf))
     else:
         x_f = fft(x_t)
-        print("Saving x fq data", flush=True)
-        np.save("Data/"+values.frb+"/"+values.frb+"_x_f_"+values.real_DM+".npy", x_f)
+        print("Saving x fq data to " + os.path.join(values.data_dir, values.xf), flush=True)
+        np.save(os.path.join(values.data_dir, values.xf), x_f)
 
-    if values.files != None and len(values.files) == 4:
-        print("Loading y fq data", flush=True)
-        y_f = np.load(values.files(3))
-    elif exists("Data/"+values.frb+"/"+values.frb+"_y_f_"+values.real_DM+".npy"):
-        print("Loading y fq data", flush=True)
-        y_f = np.load("Data/"+values.frb+"/"+values.frb+"_y_f_"+values.real_DM+".npy")
+    if exists(os.path.join(values.data_dir, values.yf)):
+        print("Loading y frequency data from " + os.path.join(values.data_dir, values.yf), flush=True)
+        y_f = np.load(os.path.join(values.data_dir, values.yf))
     else:
         y_f = fft(y_t)
-        print("Saving y fq data", flush=True)
-        np.save("Data/"+values.frb+"/"+values.frb+"_y_f_"+values.real_DM+".npy", y_f)
+        print("Saving y fq data to " + os.path.join(values.data_dir, values.yf), flush=True)
+        np.save(os.path.join(values.data_dir, values.yf), y_f)
 
     # Set parameters
     values.f_high = values.f_mid + values.N*values.width/2.
@@ -133,20 +140,25 @@ def main():
         f = fftfreq(values.N, values.width/values.N) + values.f_low
         f[int(np.ceil(values.N/2)):] = f[int(np.ceil(values.N/2)):] + values.N
 
+    # Check if output folder exists
+    if not exists(values.out_dir):
+        os.makedirs(values.out_dir)
+
     # Check if a DM0 baseline exists already then read / create it
-    if not exists("Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_0.0.npy"):
+    if not exists(os.path.join(values.out_dir,values.frb+"_DM_0.0.npy")):
         orig_spec = getSpec(x_t, y_t, values.N, values.M, values)
-        np.save("Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_0.0",orig_spec)
+        np.save(os.path.join(values.out_dir,values.frb+"_DM_0.0"),orig_spec)
         print("DM0 baseline saved", flush=True)
     else:
-        orig_spec = np.load("Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_0.0.npy")
+        orig_spec = np.load(os.path.join(values.out_dir, values.frb+"_DM_0.0.npy"))
         print("DM0 baseline loaded", flush=True)
-
-    # Determine wrapping positions for the given DM
-    intercept_idx = findFRBWrapPos(orig_spec, values, f, spec_space)
 
     # Determine mean and sd of each spectral channel
     mean, sd = getNoise(orig_spec)
+
+    # Determine wrapping positions for the given DM
+    orig_spec = normaliseSpec(orig_spec, mean, sd, sd_f=values.sd_f, normalisation=values.normalisation)
+    intercept_idx = findFRBWrapPos(orig_spec, values, f, spec_space)
 
     # Free memory
     del orig_spec
@@ -175,15 +187,17 @@ def main():
     del x_t_dispersed
     del y_t_dispersed
 
+    # Save dispersed_spec
+    if values.save:
+        t = np.arange(dispersed_spec.shape[0]) * spec_space
+        dispersed_spec = normaliseSpec(dispersed_spec, mean, sd, sd_f=values.sd_f, normalisation=values.normalisation)
+        saveSpec(np.transpose(dispersed_spec), t, f, os.path.join(values.out_dir, values.frb+"_DM_"+str(values.DM)))
+
     # Reconstruct the spectrogram to eliminate wrapping of the signal
     dispersed_spec_reconstructed = reconstructSpec(dispersed_spec, intercept_idx, mean, sd, values.upper_sideband)
     print("Dispersed spectrogram reconstructed to avoid wrapping", flush=True)
 
-    # Save and free dispersed_spec
-    if values.save:
-        t = np.arange(dispersed_spec.shape[0]) * spec_space
-        dispersed_spec = normaliseSpec(dispersed_spec, mean, sd, sd_f=values.sd_f, normalisation=values.normalisation)
-        saveSpec(np.transpose(dispersed_spec), t, f, "Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM))
+    # Free dispersed_spec
     del dispersed_spec
 
     # Create filterbank appropriate spectrogram
@@ -192,12 +206,12 @@ def main():
 
     # Save to filterbank file
     if not values.upper_sideband:
-        header = wf.makeHeader(values.f_high, -values.width, values.N, spec_space)
-        wf.inject(header,"Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM),noise)
+        header = wf.makeHeader(values.f_high - values.width/2., -values.width, values.N, spec_space)
+        wf.inject(header,os.path.join(values.out_dir,values.frb+"_DM_"+str(values.DM)),noise)
     else:
-        header = wf.makeHeader(values.f_low, values.width, values.N, spec_space)
-        wf.inject(header,"Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM),noise)
-    print("Saved filterbank file", flush=True)
+        header = wf.makeHeader(values.f_low + values.width/2., values.width, values.N, spec_space)
+        wf.inject(header,os.path.join(values.out_dir,values.frb+"_DM_"+str(values.DM)),noise)
+    print("Saved filterbank file to " + os.path.join(values.out_dir,values.frb+"_DM_"+str(values.DM)) + ".fil", flush=True)
 
     if values.save:
         # Save the final spectrogram
@@ -206,10 +220,10 @@ def main():
         
         t_expanded = np.arange(dispersed_spec_reconstructed.shape[0]) * spec_space
         t_noise = np.arange(noise.shape[0]) * spec_space
-        saveSpec(np.transpose(noise), t_noise, f, "Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM)+"_noisy")
+        saveSpec(np.transpose(noise), t_noise, f, os.path.join(values.out_dir,values.frb+"_DM_"+str(values.DM)+"_noisy"))
         
-        dispersed_spec_reconstructed = normaliseSpec(dispersed_spec_reconstructed, mean, sd, sd_f=values.sd_f, normalisation=values.normalisation)
-        saveSpec(np.transpose(dispersed_spec_reconstructed), t_expanded, f, "Dispersed_"+values.frb+"/outputs/"+values.frb+"_DM_"+str(values.DM)+"_reconstructed")
+        out_spec = normaliseSpec(dispersed_spec_reconstructed, mean, sd, sd_f=values.sd_f, normalisation=values.normalisation)
+        saveSpec(np.transpose(out_spec), t_expanded, f, os.path.join(values.out_dir,values.frb+"_DM_"+str(values.DM)+"_reconstructed"))
         print("Saved pngs", flush=True)
 
 #==============================================================================
@@ -386,20 +400,17 @@ Exports:
 """
 def reconstructSpec(dispersed_spec, intercept_idx, mean, sd, upper_sideband=False, buffer=10):
 
-    print(intercept_idx)
     numIntercepts = len(intercept_idx)
     if (numIntercepts > 0):
         N = dispersed_spec.shape[1]
         if not upper_sideband:
             dispersed_spec = np.flip(dispersed_spec, axis=0)
+            intercept_idx = intercept_idx[::-1]
 
         # Create new padded array of noise
         padded = np.zeros(((numIntercepts + 1)*dispersed_spec.shape[0],dispersed_spec.shape[1]))
         for i in range(N):
             padded[:,i] = np.random.normal(mean[i],sd[i],((numIntercepts + 1)*dispersed_spec.shape[0]))
-        
-        # padded_unordered = padded.copy()
-        # padded_unordered[:dispersed_spec.shape[0],:] = dispersed_spec
 
         # Copy in pieces as necessary
         fin = dispersed_spec.shape[0]
@@ -438,7 +449,7 @@ def reconstructSpec(dispersed_spec, intercept_idx, mean, sd, upper_sideband=Fals
         padded[(i)*fin+mid:(i)*fin+fin,next_right_idx:right_idx] = dispersed_spec[mid:fin,next_right_idx:right_idx]
 
         if not upper_sideband:
-            dispersed_spec = np.flip(dispersed_spec, axis=0)
+            # dispersed_spec = np.flip(dispersed_spec, axis=0)
             padded = np.flip(padded, axis=0)
     else:
         padded = dispersed_spec
@@ -547,6 +558,11 @@ def normaliseSpec(spec,mean,sd,mean_f=128,sd_f=18,normalisation=0):
     sds_mean = np.mean(sd)
     sds_sd = np.std(sd)
 
+    print(str(sds_sd), str(means_sd))
+
+    # Do masking
+    masked_list=[]
+    unmasked_list=[]
     for i in range(len(mean)):
         mean_z = (mean[i] - means_mean)/means_sd
         sd_z = (sd[i] - sds_mean) / sds_sd
@@ -555,14 +571,18 @@ def normaliseSpec(spec,mean,sd,mean_f=128,sd_f=18,normalisation=0):
             print("Mean z value: " + str(mean_z))
             print("SD z value: " + str(sd_z), flush=True)
             spec[:,i] = 0
+            masked_list.append(i)
+        else:
+            unmasked_list.append(i)
 
     # Normalise by whole grid / frequency channels
     if normalisation==0:
-        mean_t, sd_t = stats.norm.fit(spec[:,:])
-        spec = (spec - mean_t) / sd_t
-        spec = spec * sd_f + mean_f
+        mean_t, sd_t = stats.norm.fit(spec[:,unmasked_list])
+        spec[:,unmasked_list] = (spec[:,unmasked_list] - mean_t) / sd_t
+        spec[:,unmasked_list] = spec[:,unmasked_list] * sd_f + mean_f
     elif normalisation==1:
-        for i in range(len(mean)):
+        for j in range(len(unmasked_list)):
+            i = unmasked_list[j]
             spec[:,i] = (spec[:,i] - mean[i]) / sd[i]
             spec[:,i] = spec[:,i] * sd_f + mean_f
 
@@ -594,14 +614,24 @@ def saveSpec(spec, t, f, file_name):
     # plt.savefig(file_name + ".png", format="png", bbox_inches='tight')
     # plt.close()
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8,8))
     ax = plt.subplot(1,1,1)
 
-    cm = plt.pcolormesh(t, f, spec, shading='auto')
-    # cm = ax.imshow(spec, aspect="auto", extent=[t[0], t[-1], f[0], f[-1]], origin='lower', vmin=np.min(spec), vmax=np.max(spec))
-    ax.set_xlabel("Time (s)")
+    for i in range(spec.shape[0]):
+        if np.all(spec[i,:] == 0.0):
+            spec[i,:] = np.NaN
+
+    if np.max(t) < 1:
+        cm = ax.pcolormesh(t*1000, f, spec, shading='auto')
+        # cm = ax.imshow(spec, aspect="auto", extent=[t[0], t[-1], f[0], f[-1]], origin='lower', vmin=np.min(spec), vmax=np.max(spec))
+        ax.set_xlabel("Time (ms)")
+    else:
+        cm = ax.pcolormesh(t, f, spec, shading='auto')
+        # cm = ax.imshow(spec, aspect="auto", extent=[t[0], t[-1], f[0], f[-1]], origin='lower', vmin=np.min(spec), vmax=np.max(spec))
+        ax.set_xlabel("Time (s)")
+    
     ax.set_ylabel("Frequency (MHz)")
-    fig.colorbar(cm)
+    # fig.colorbar(cm)
     plt.savefig(file_name + ".png", format="png", bbox_inches='tight')
 
 #==============================================================================
@@ -673,6 +703,7 @@ Exports:
     opdata = Vector of data after the pfb averaging has been performed
 """
 def implement_PFB(data,window,N,M):
+    print("Doing pfb", flush=True)
     # requires the data to be some multiple of N
     nIPblocks=int(data.size/N)
     nOPblocks=int(nIPblocks-M+1)

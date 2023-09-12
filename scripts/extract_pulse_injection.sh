@@ -4,7 +4,7 @@
 
 frb=$1
 
-cd $REDIS/Dispersed_$frb/pulse_injection/fredda_outputs/
+cd $REDIS/Outputs/Dispersed_$frb/pulse_injection/fredda_outputs/
 
 echo "# width, DM, S/N, sampno, secs from file start, boxcar, idt, dm, beamno,mjd, sampno_start, sampno_end, idt_start, idt_end, ncands" > temp.txt
 

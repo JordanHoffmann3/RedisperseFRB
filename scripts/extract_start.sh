@@ -4,7 +4,7 @@
 for frb in "$@"
 do
 
-    cd $REDIS/Dispersed_${frb}/job/
+    cd $REDIS/Outputs/Dispersed_${frb}/job/
     echo "# DM, start pos" > start_pos.txt
 
     for f in slurm*

@@ -3,8 +3,7 @@
 !/src/
 !/scripts/
 !/SNR_curves/
-!/fredda/*.txt
-!/Data/
+!/pipeline/
 
 .viminfo
 
@@ -15,6 +14,8 @@
 *.fof
 *.npy
 *.pyc
+*.log
+*.dat
 
 *fake*
 *old*

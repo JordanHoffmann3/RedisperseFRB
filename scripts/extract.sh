@@ -4,7 +4,7 @@
 for frb in "$@"
 do
 
-    cd $REDIS/Dispersed_${frb}/fredda_outputs/
+    cd $REDIS/Outputs/Dispersed_${frb}/fredda_outputs/
     echo "# DM, S/N, sampno, secs from file start, boxcar, idt, dm, beamno,mjd, sampno_start, sampno_end, idt_start, idt_end, ncands" > extracted_outputs.txt
 
     for f in *.cand.fof
