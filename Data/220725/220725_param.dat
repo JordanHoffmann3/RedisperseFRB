@@ -2,5 +2,5 @@
 288.37      # DM
 920.5       # f_mid (MHz)
 1.182       # t_int (ms)
-4.1         # burst width (ms)
+1.8         # burst width (ms)
 12.7        # real SN

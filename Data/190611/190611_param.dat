@@ -1,6 +1,6 @@
 190611      # FRB
-322.2       # DM
+322.49      # DM
 1271.5      # f_mid (MHz)
 1.728       # t_int (ms)
-1.5         # burst width (ms)
+1.5        # burst width (ms) 0.05
 9.3         # real SN
